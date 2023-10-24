@@ -18,8 +18,6 @@ package plugin
 
 import (
 	"testing"
-
-	"github.com/containerd/containerd/services"
 )
 
 func mockPluginFilter(*Registration) bool {
@@ -51,7 +49,7 @@ func TestContainerdPlugin(t *testing.T) {
 		ID:   "cgroups",
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.TasksService,
+		ID:   "tasks-service",
 		Requires: []Type{
 			RuntimePlugin,
 			RuntimePluginV2,
@@ -60,10 +58,10 @@ func TestContainerdPlugin(t *testing.T) {
 		},
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.IntrospectionService,
+		ID:   "introspection-service",
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.NamespacesService,
+		ID:   "namespaces-service",
 		Requires: []Type{
 			MetadataPlugin,
 		},
@@ -87,7 +85,7 @@ func TestContainerdPlugin(t *testing.T) {
 		},
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.ContainersService,
+		ID:   "containers-service",
 		Requires: []Type{
 			MetadataPlugin,
 		},
@@ -114,13 +112,13 @@ func TestContainerdPlugin(t *testing.T) {
 		},
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.DiffService,
+		ID:   "diff-service",
 		Requires: []Type{
 			DiffPlugin,
 		},
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.SnapshotsService,
+		ID:   "snapshots-service",
 		Requires: []Type{
 			MetadataPlugin,
 		},
@@ -163,7 +161,7 @@ func TestContainerdPlugin(t *testing.T) {
 		Requires: []Type{"*"},
 	}).Register(&Registration{
 		Type: ServicePlugin,
-		ID:   services.ContentService,
+		ID:   "content-service",
 		Requires: []Type{
 			MetadataPlugin,
 		},
