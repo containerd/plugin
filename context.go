@@ -128,12 +128,25 @@ func (ps *Set) GetAll() []*Plugin {
 	return ps.ordered
 }
 
-// Get returns the first plugin by its type
-func (i *InitContext) Get(t Type) (interface{}, error) {
-	for _, v := range i.plugins.byTypeAndID[t] {
-		return v.Instance()
+// GetSingle returns a plugin instance of the given type when only a single instance
+// of that type is expected. Throws an ErrPluginNotFound if no plugin is found and
+// ErrPluginMultipleInstances when multiple instances are found.
+// Since plugins are not ordered, if multiple instances is suported then
+// GetByType should be used. If only one is expected, then to switch plugins,
+// disable or remove the unused plugins of the same type.
+func (i *InitContext) GetSingle(t Type) (interface{}, error) {
+	pt, ok := i.plugins.byTypeAndID[t]
+	if !ok || len(pt) == 0 {
+		return nil, fmt.Errorf("no plugins registered for %s: %w", t, ErrPluginNotFound)
 	}
-	return nil, fmt.Errorf("no plugins registered for %s: %w", t, ErrPluginNotFound)
+	if len(pt) > 1 {
+		return nil, fmt.Errorf("multiple plugins registered for %s: %w", t, ErrPluginMultipleInstances)
+	}
+	var p *Plugin
+	for _, v := range pt {
+		p = v
+	}
+	return p.Instance()
 }
 
 // Plugins returns plugin set
