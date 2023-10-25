@@ -27,10 +27,10 @@ import (
 
 // loadPlugins loads all plugins for the OS and Arch
 // that containerd is built for inside the provided path
-func loadPlugins(path string) error {
+func loadPlugins(path string) (int, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	pattern := filepath.Join(abs, fmt.Sprintf(
 		"*-%s-%s.%s",
@@ -40,14 +40,16 @@ func loadPlugins(path string) error {
 	))
 	libs, err := filepath.Glob(pattern)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	loaded := 0
 	for _, lib := range libs {
 		if _, err := plugin.Open(lib); err != nil {
-			return err
+			return loaded, err
 		}
+		loaded++
 	}
-	return nil
+	return loaded, nil
 }
 
 // getLibExt returns a platform specific lib extension for
