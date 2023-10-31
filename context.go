@@ -135,18 +135,28 @@ func (ps *Set) GetAll() []*Plugin {
 // GetByType should be used. If only one is expected, then to switch plugins,
 // disable or remove the unused plugins of the same type.
 func (i *InitContext) GetSingle(t Type) (interface{}, error) {
-	pt, ok := i.plugins.byTypeAndID[t]
-	if !ok || len(pt) == 0 {
+	var (
+		found    bool
+		instance interface{}
+	)
+	for _, v := range i.plugins.byTypeAndID[t] {
+		i, err := v.Instance()
+		if err != nil {
+			if IsSkipPlugin(err) {
+				continue
+			}
+			return i, err
+		}
+		if found {
+			return nil, fmt.Errorf("multiple plugins registered for %s: %w", t, ErrPluginMultipleInstances)
+		}
+		instance = i
+		found = true
+	}
+	if !found {
 		return nil, fmt.Errorf("no plugins registered for %s: %w", t, ErrPluginNotFound)
 	}
-	if len(pt) > 1 {
-		return nil, fmt.Errorf("multiple plugins registered for %s: %w", t, ErrPluginMultipleInstances)
-	}
-	var p *Plugin
-	for _, v := range pt {
-		p = v
-	}
-	return p.Instance()
+	return instance, nil
 }
 
 // Plugins returns plugin set
@@ -170,18 +180,19 @@ func (i *InitContext) GetByID(t Type, id string) (interface{}, error) {
 
 // GetByType returns all plugins with the specific type.
 func (i *InitContext) GetByType(t Type) (map[string]interface{}, error) {
-	pt, ok := i.plugins.byTypeAndID[t]
-	if !ok {
-		return nil, fmt.Errorf("no plugins registered for %s: %w", t, ErrPluginNotFound)
-	}
-
-	pi := make(map[string]interface{}, len(pt))
-	for id, p := range pt {
+	pi := map[string]interface{}{}
+	for id, p := range i.plugins.byTypeAndID[t] {
 		i, err := p.Instance()
 		if err != nil {
+			if IsSkipPlugin(err) {
+				continue
+			}
 			return nil, err
 		}
 		pi[id] = i
+	}
+	if len(pi) == 0 {
+		return nil, fmt.Errorf("no plugins registered for %s: %w", t, ErrPluginNotFound)
 	}
 
 	return pi, nil

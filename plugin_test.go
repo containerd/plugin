@@ -17,6 +17,8 @@
 package plugin
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -375,5 +377,138 @@ func TestPluginGraph(t *testing.T) {
 		}
 		ordered := register.Graph(filter)
 		cmpOrdered(t, ordered, testcase.expectedURI)
+	}
+}
+
+func TestGetPlugins(t *testing.T) {
+	otherError := fmt.Errorf("other error")
+	plugins := NewPluginSet()
+	for _, p := range []*Plugin{
+		testPlugin("type1", "id1", "id1", nil),
+		testPlugin("type1", "id2", "id2", ErrSkipPlugin),
+		testPlugin("type2", "id3", "id3", ErrSkipPlugin),
+		testPlugin("type3", "id4", "id4", nil),
+		testPlugin("type4", "id5", "id5", nil),
+		testPlugin("type4", "id6", "id6", nil),
+		testPlugin("type5", "id7", "id7", otherError),
+	} {
+		plugins.Add(p)
+	}
+
+	ic := InitContext{
+		plugins: plugins,
+	}
+
+	for _, tc := range []struct {
+		pluginType string
+		err        error
+	}{
+		{"type1", nil},
+		{"type2", ErrPluginNotFound},
+		{"type3", nil},
+		{"type4", ErrPluginMultipleInstances},
+		{"type5", otherError},
+	} {
+		t.Run("GetSingle", func(t *testing.T) {
+			instance, err := ic.GetSingle(Type(tc.pluginType))
+			if err != nil {
+				if tc.err == nil {
+					t.Fatalf("unexpected error %v", err)
+				} else if !errors.Is(err, tc.err) {
+					t.Fatalf("unexpected error %v, expected %v", err, tc.err)
+				}
+				return
+			} else if tc.err != nil {
+				t.Fatalf("expected error %v, got no error", tc.err)
+			}
+			_, ok := instance.(string)
+			if !ok {
+				t.Fatalf("unexpected instance value %v", instance)
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		pluginType string
+		expected   []string
+		err        error
+	}{
+		{"type1", []string{"id1"}, nil},
+		{"type2", nil, ErrPluginNotFound},
+		{"type3", []string{"id4"}, nil},
+		{"type4", []string{"id5", "id6"}, nil},
+		{"type5", nil, otherError},
+	} {
+		t.Run("GetByType", func(t *testing.T) {
+			m, err := ic.GetByType(Type(tc.pluginType))
+			if err != nil {
+				if tc.err == nil {
+					t.Fatalf("unexpected error %v", err)
+				} else if !errors.Is(err, tc.err) {
+					t.Fatalf("unexpected error %v, expected %v", err, tc.err)
+				}
+				return
+			} else if tc.err != nil {
+				t.Fatalf("expected error %v, got no error", tc.err)
+			}
+
+			if len(m) != len(tc.expected) {
+				t.Fatalf("unexpected result %v, expected %v", m, tc.expected)
+			}
+			for _, v := range tc.expected {
+				instance, ok := m[v]
+				if !ok {
+					t.Errorf("missing value for %q", v)
+					continue
+				}
+				if instance.(string) != v {
+					t.Errorf("unexpected value %v, expected %v", instance, v)
+				}
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		pluginType string
+		id         string
+		err        error
+	}{
+		{"type1", "id1", nil},
+		{"type1", "id2", ErrSkipPlugin},
+		{"type2", "id3", ErrSkipPlugin},
+		{"type3", "id4", nil},
+		{"type4", "id5", nil},
+		{"type4", "id6", nil},
+		{"type5", "id7", otherError},
+	} {
+		t.Run("GetByID", func(t *testing.T) {
+			instance, err := ic.GetByID(Type(tc.pluginType), tc.id)
+			if err != nil {
+				if tc.err == nil {
+					t.Fatalf("unexpected error %v", err)
+				} else if !errors.Is(err, tc.err) {
+					t.Fatalf("unexpected error %v, expected %v", err, tc.err)
+				}
+				return
+			} else if tc.err != nil {
+				t.Fatalf("expected error %v, got no error", tc.err)
+			}
+
+			if instance.(string) != tc.id {
+				t.Errorf("unexpected value %v, expected %v", instance, tc.id)
+			}
+		})
+	}
+
+}
+
+func testPlugin(t Type, id string, i interface{}, err error) *Plugin {
+	return &Plugin{
+		Registration: Registration{
+			Type: t,
+			ID:   id,
+		},
+		instance: i,
+		err:      err,
 	}
 }
