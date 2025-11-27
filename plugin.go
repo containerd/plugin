@@ -39,6 +39,8 @@ var (
 	ErrPluginNotFound = errors.New("plugin: not found")
 	// ErrPluginMultipleInstances is used when a plugin is expected a single instance but has multiple
 	ErrPluginMultipleInstances = errors.New("plugin: multiple instances")
+	// ErrPluginCircularDependency is used when the graph detect a circular plugin dependency
+	ErrPluginCircularDependency = errors.New("plugin: dependency loop detected")
 
 	// ErrInvalidRequires will be thrown if the requirements for a plugin are
 	// defined in an invalid manner.

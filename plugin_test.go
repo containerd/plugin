@@ -44,7 +44,6 @@ const (
 )
 
 func testRegistry() Registry {
-
 	var register Registry
 	return register.Register(&Registration{
 		Type: TaskMonitorPlugin,
@@ -514,6 +513,158 @@ func testPlugin(t Type, id string, i interface{}, err error) *Plugin {
 		},
 		instance: i,
 		err:      err,
+	}
+}
+
+func TestRequiresAll(t *testing.T) {
+	var register Registry
+	register = register.Register(&Registration{
+		Type: InternalPlugin,
+		ID:   "system",
+	}).Register(&Registration{
+		Type: ServicePlugin,
+		ID:   "introspection",
+		Requires: []Type{
+			"*",
+		},
+	}).Register(&Registration{
+		Type: ServicePlugin,
+		ID:   "task",
+		Requires: []Type{
+			InternalPlugin,
+		},
+	}).Register(&Registration{
+		Type: ServicePlugin,
+		ID:   "version",
+	})
+	ordered := register.Graph(mockPluginFilter)
+	expectedURI := []string{
+		"io.containerd.internal.v1.system",
+		"io.containerd.service.v1.task",
+		"io.containerd.service.v1.version",
+		"io.containerd.service.v1.introspection",
+	}
+	cmpOrdered(t, ordered, expectedURI)
+}
+
+func TestRegisterErrors(t *testing.T) {
+
+	for _, tc := range []struct {
+		name     string
+		expected error
+		register func(Registry) Registry
+	}{
+		{
+			name:     "duplicate",
+			expected: ErrIDRegistered,
+			register: func(r Registry) Registry {
+				return r.Register(&Registration{
+					Type: TaskMonitorPlugin,
+					ID:   "cgroups",
+				}).Register(&Registration{
+					Type: TaskMonitorPlugin,
+					ID:   "cgroups",
+				})
+			},
+		},
+		{
+			name:     "circular",
+			expected: ErrPluginCircularDependency,
+			register: func(r Registry) Registry {
+				// Circular dependencies should not loop but order will be based on registration order
+				return r.Register(&Registration{
+					Type: InternalPlugin,
+					ID:   "p1",
+					Requires: []Type{
+						RuntimePlugin,
+					},
+				}).Register(&Registration{
+					Type: RuntimePlugin,
+					ID:   "p2",
+					Requires: []Type{
+						InternalPlugin,
+					},
+				}).Register(&Registration{
+					Type: InternalPlugin,
+					ID:   "p3",
+				})
+			},
+		},
+		{
+			name:     "self",
+			expected: ErrInvalidRequires,
+			register: func(r Registry) Registry {
+				// Circular dependencies should not loop but order will be based on registration order
+				return r.Register(&Registration{
+					Type: InternalPlugin,
+					ID:   "p1",
+					Requires: []Type{
+						InternalPlugin,
+					},
+				})
+			},
+		},
+		{
+			name:     "no-type",
+			expected: ErrNoType,
+			register: func(r Registry) Registry {
+				// Circular dependencies should not loop but order will be based on registration order
+				return r.Register(&Registration{
+					Type: "",
+					ID:   "p1",
+				})
+			},
+		},
+		{
+			name:     "no-ID",
+			expected: ErrNoPluginID,
+			register: func(r Registry) Registry {
+				// Circular dependencies should not loop but order will be based on registration order
+				return r.Register(&Registration{
+					Type: InternalPlugin,
+					ID:   "",
+				})
+			},
+		},
+		{
+			name:     "bad-requires-all",
+			expected: ErrInvalidRequires,
+			register: func(r Registry) Registry {
+				// Circular dependencies should not loop but order will be based on registration order
+				return r.Register(&Registration{
+					Type: InternalPlugin,
+					ID:   "p1",
+					Requires: []Type{
+						"*",
+						InternalPlugin,
+					},
+				})
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				r        Registry
+				panicAny any
+			)
+			func() {
+				defer func() {
+					panicAny = recover()
+				}()
+
+				tc.register(r).Graph(mockPluginFilter)
+			}()
+			if panicAny == nil {
+				t.Fatalf("expected panic with error %v", tc.expected)
+			}
+			err, ok := panicAny.(error)
+			if !ok {
+				t.Fatalf("expected panic: %v, expected error %v", panicAny, tc.expected)
+			}
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("unexpected error type: %v, expected %v", panicAny, tc.expected)
+			}
+		})
 	}
 }
 
