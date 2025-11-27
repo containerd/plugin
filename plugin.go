@@ -169,7 +169,7 @@ func (registry Registry) Register(r *Registration) Registry {
 	}
 
 	for _, requires := range r.Requires {
-		if requires == "*" && len(r.Requires) != 1 {
+		if (requires == "*" && len(r.Requires) != 1) || requires == r.Type {
 			panic(ErrInvalidRequires)
 		}
 	}
