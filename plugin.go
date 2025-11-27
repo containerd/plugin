@@ -112,37 +112,34 @@ type Registry []*Registration
 // Graph computes the ordered list of registrations based on their dependencies,
 // filtering out any plugins which match the provided filter.
 func (registry Registry) Graph(filter DisableFilter) []Registration {
-	disabled := map[*Registration]bool{}
-	for _, r := range registry {
-		if filter(r) {
-			disabled[r] = true
+	handled := make(map[*Registration]bool, len(registry))
+	if filter != nil {
+		for _, r := range registry {
+			if filter(r) {
+				handled[r] = true
+			}
 		}
 	}
 
-	ordered := make([]Registration, 0, len(registry)-len(disabled))
-	added := map[*Registration]bool{}
+	ordered := make([]Registration, 0, len(registry)-len(handled))
 	for _, r := range registry {
-		if disabled[r] {
+		if handled[r] {
 			continue
 		}
-		children(r, registry, added, disabled, &ordered)
-		if !added[r] {
-			ordered = append(ordered, *r)
-			added[r] = true
-		}
+		handled[r] = true
+		children(r, registry, handled, &ordered)
+		ordered = append(ordered, *r)
 	}
 	return ordered
 }
 
-func children(reg *Registration, registry []*Registration, added, disabled map[*Registration]bool, ordered *[]Registration) {
+func children(reg *Registration, registry []*Registration, handled map[*Registration]bool, ordered *[]Registration) {
 	for _, t := range reg.Requires {
 		for _, r := range registry {
-			if (t == "*" || r.Type == t) && r != reg && !disabled[r] {
-				children(r, registry, added, disabled, ordered)
-				if !added[r] {
-					*ordered = append(*ordered, *r)
-					added[r] = true
-				}
+			if (t == "*" || r.Type == t) && r != reg && !handled[r] {
+				handled[r] = true
+				children(r, registry, handled, ordered)
+				*ordered = append(*ordered, *r)
 			}
 		}
 	}
