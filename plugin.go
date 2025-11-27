@@ -170,7 +170,7 @@ func (registry Registry) Register(r *Registration) Registry {
 
 func checkUnique(registry Registry, r *Registration) error {
 	for _, registered := range registry {
-		if r.URI() == registered.URI() {
+		if r.Type == registered.Type && r.ID == registered.ID {
 			return fmt.Errorf("%s: %w", r.URI(), ErrIDRegistered)
 		}
 	}
