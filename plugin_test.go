@@ -26,27 +26,27 @@ func mockPluginFilter(*Registration) bool {
 	return false
 }
 
-// TestContainerdPlugin tests the logic of Graph, use the containerd's plugin
-func TestContainerdPlugin(t *testing.T) {
-	// Plugin types commonly used by containerd
-	const (
-		InternalPlugin         Type = "io.containerd.internal.v1"
-		RuntimePlugin          Type = "io.containerd.runtime.v1"
-		RuntimePluginV2        Type = "io.containerd.runtime.v2"
-		ServicePlugin          Type = "io.containerd.service.v1"
-		GRPCPlugin             Type = "io.containerd.grpc.v1"
-		SnapshotPlugin         Type = "io.containerd.snapshotter.v1"
-		TaskMonitorPlugin      Type = "io.containerd.monitor.v1"
-		DiffPlugin             Type = "io.containerd.differ.v1"
-		MetadataPlugin         Type = "io.containerd.metadata.v1"
-		ContentPlugin          Type = "io.containerd.content.v1"
-		GCPlugin               Type = "io.containerd.gc.v1"
-		LeasePlugin            Type = "io.containerd.lease.v1"
-		TracingProcessorPlugin Type = "io.containerd.tracing.processor.v1"
-	)
+// Plugin types commonly used by containerd
+const (
+	InternalPlugin         Type = "io.containerd.internal.v1"
+	RuntimePlugin          Type = "io.containerd.runtime.v1"
+	RuntimePluginV2        Type = "io.containerd.runtime.v2"
+	ServicePlugin          Type = "io.containerd.service.v1"
+	GRPCPlugin             Type = "io.containerd.grpc.v1"
+	SnapshotPlugin         Type = "io.containerd.snapshotter.v1"
+	TaskMonitorPlugin      Type = "io.containerd.monitor.v1"
+	DiffPlugin             Type = "io.containerd.differ.v1"
+	MetadataPlugin         Type = "io.containerd.metadata.v1"
+	ContentPlugin          Type = "io.containerd.content.v1"
+	GCPlugin               Type = "io.containerd.gc.v1"
+	LeasePlugin            Type = "io.containerd.lease.v1"
+	TracingProcessorPlugin Type = "io.containerd.tracing.processor.v1"
+)
+
+func testRegistry() Registry {
 
 	var register Registry
-	register = register.Register(&Registration{
+	return register.Register(&Registration{
 		Type: TaskMonitorPlugin,
 		ID:   "cgroups",
 	}).Register(&Registration{
@@ -223,7 +223,11 @@ func TestContainerdPlugin(t *testing.T) {
 			TracingProcessorPlugin,
 		},
 	})
+}
 
+// TestContainerdPlugin tests the logic of Graph, use the containerd's plugin
+func TestContainerdPlugin(t *testing.T) {
+	register := testRegistry()
 	ordered := register.Graph(mockPluginFilter)
 	expectedURI := []string{
 		"io.containerd.monitor.v1.cgroups",
@@ -510,5 +514,24 @@ func testPlugin(t Type, id string, i interface{}, err error) *Plugin {
 		},
 		instance: i,
 		err:      err,
+	}
+}
+
+func BenchmarkGraph(b *testing.B) {
+	register := testRegistry()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		register.Graph(mockPluginFilter)
+	}
+}
+
+func BenchmarkUnique(b *testing.B) {
+	register := testRegistry()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		checkUnique(register, &Registration{
+			Type: InternalPlugin,
+			ID:   "new",
+		})
 	}
 }

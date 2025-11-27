@@ -135,7 +135,7 @@ func (registry Registry) Graph(filter DisableFilter) []Registration {
 func children(reg *Registration, registry []*Registration, added, disabled map[*Registration]bool, ordered *[]Registration) {
 	for _, t := range reg.Requires {
 		for _, r := range registry {
-			if !disabled[r] && r.URI() != reg.URI() && (t == "*" || r.Type == t) {
+			if (t == "*" || r.Type == t) && r != reg && !disabled[r] {
 				children(r, registry, added, disabled, ordered)
 				if !added[r] {
 					*ordered = append(*ordered, *r)
@@ -170,7 +170,7 @@ func (registry Registry) Register(r *Registration) Registry {
 
 func checkUnique(registry Registry, r *Registration) error {
 	for _, registered := range registry {
-		if r.URI() == registered.URI() {
+		if r.Type == registered.Type && r.ID == registered.ID {
 			return fmt.Errorf("%s: %w", r.URI(), ErrIDRegistered)
 		}
 	}
