@@ -112,34 +112,44 @@ type Registry []*Registration
 // Graph computes the ordered list of registrations based on their dependencies,
 // filtering out any plugins which match the provided filter.
 func (registry Registry) Graph(filter DisableFilter) []Registration {
-	handled := make(map[*Registration]bool, len(registry))
+	handled := make(map[*Registration]struct{}, len(registry))
 	if filter != nil {
 		for _, r := range registry {
 			if filter(r) {
-				handled[r] = true
+				handled[r] = struct{}{}
 			}
 		}
 	}
 
 	ordered := make([]Registration, 0, len(registry)-len(handled))
+	stack := make([]*Registration, 0, cap(ordered))
 	for _, r := range registry {
-		if handled[r] {
+		if _, ok := handled[r]; ok {
 			continue
 		}
-		handled[r] = true
-		children(r, registry, handled, &ordered)
+		children(append(stack, r), registry, handled, &ordered)
+		handled[r] = struct{}{}
 		ordered = append(ordered, *r)
 	}
 	return ordered
 }
 
-func children(reg *Registration, registry []*Registration, handled map[*Registration]bool, ordered *[]Registration) {
+func children(stack []*Registration, registry []*Registration, handled map[*Registration]struct{}, ordered *[]Registration) {
+	reg := stack[len(stack)-1]
 	for _, t := range reg.Requires {
 		for _, r := range registry {
-			if (t == "*" || r.Type == t) && r != reg && !handled[r] {
-				handled[r] = true
-				children(r, registry, handled, ordered)
-				*ordered = append(*ordered, *r)
+			if (t == "*" || r.Type == t) && r != reg {
+				if _, ok := handled[r]; !ok {
+					// Ensure not in current stack
+					for _, p := range stack[:len(stack)-1] {
+						if p == r {
+							panic(fmt.Errorf("circular plugin dependency at %s: %w", r.URI(), ErrPluginCircularDependency))
+						}
+					}
+					children(append(stack, r), registry, handled, ordered)
+					handled[r] = struct{}{}
+					*ordered = append(*ordered, *r)
+				}
 			}
 		}
 	}
