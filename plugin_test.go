@@ -520,7 +520,7 @@ func testPlugin(t Type, id string, i interface{}, err error) *Plugin {
 func BenchmarkGraph(b *testing.B) {
 	register := testRegistry()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		register.Graph(mockPluginFilter)
 	}
 }
@@ -528,7 +528,7 @@ func BenchmarkGraph(b *testing.B) {
 func BenchmarkUnique(b *testing.B) {
 	register := testRegistry()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		checkUnique(register, &Registration{
 			Type: InternalPlugin,
 			ID:   "new",
