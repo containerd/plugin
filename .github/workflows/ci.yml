@@ -27,7 +27,7 @@ jobs:
         os: [ubuntu-latest, macos-latest] # windows-latest has fmt issue
 
     steps:
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
 
@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
 
@@ -76,7 +76,7 @@ jobs:
         with:
           path: src/github.com/containerd/plugin
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: 'stable'
 
