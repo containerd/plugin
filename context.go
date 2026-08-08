@@ -57,6 +57,7 @@ type Meta struct {
 	Platforms    []imagespec.Platform // platforms supported by plugin
 	Exports      map[string]string    // values exported by plugin
 	Capabilities []string             // feature switches for plugin
+	State        func() interface{}   // callback to get a plugin state object
 }
 
 // Plugin represents an initialized plugin, used with an init context.
